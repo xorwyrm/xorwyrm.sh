@@ -13,15 +13,19 @@ document.addEventListener('keydown', (e) => {
 
 startField(document.getElementById('field') as HTMLCanvasElement);
 
-// "hi, i'm <binary>": the first hover (or tap) rebuilds the bits into pixel letters
-// spelling the name (CSS transitions, positions from PixelWord.astro). That's remembered;
+// "hi, i'm <binary>": on a first visit the bits rebuild themselves into pixel letters a moment
+// after the page loads (CSS transitions, positions from PixelWord.astro). That's remembered;
 // after it, clicking flips between the two (also remembered).
 // The decoded state is data-name="bit" on <html>; Window.astro sets it before paint.
 const NAME_KEY = 'name';
-const canHover = matchMedia('(hover: hover)');
+const DECODE_AFTER = 1000; // ms
+let decodeTimer = 0;
 
+// 'bit' or 'binary'; anything else (unset, or a value we didn't write) counts as a first visit
 function storedName() {
-  try { return localStorage.getItem(NAME_KEY); } catch { return null; }
+  let v: string | null = null;
+  try { v = localStorage.getItem(NAME_KEY); } catch { /* storage blocked */ }
+  return v === 'bit' || v === 'binary' ? v : null;
 }
 function setName(decoded: boolean) {
   if (decoded) document.documentElement.dataset.name = 'bit';
@@ -35,15 +39,18 @@ document.addEventListener('astro:after-swap', () => {
 
 // every pixel word (the name, the page titles) shares the one state
 function setupHello() {
-  document.querySelectorAll<HTMLElement>('.hello').forEach((hello) => {
-    hello.addEventListener('mouseenter', () => {
-      if (!canHover.matches || storedName() !== null || document.documentElement.dataset.name) return;
-      setName(true);
-    });
+  const words = document.querySelectorAll<HTMLElement>('.hello');
+  words.forEach((hello) => {
     hello.addEventListener('click', () => {
+      clearTimeout(decodeTimer);
       setName(document.documentElement.dataset.name !== 'bit');
     });
   });
+  // first visit: decode on its own. someone who has switched it back to binary keeps binary
+  if (words.length && storedName() === null) {
+    clearTimeout(decodeTimer);
+    decodeTimer = window.setTimeout(() => { if (storedName() === null) setName(true); }, DECODE_AFTER);
+  }
 }
 
 document.addEventListener('astro:page-load', setupHello);

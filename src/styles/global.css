@@ -89,8 +89,8 @@ h1, h2, p { margin: 0; font-weight: 400; }
 .rows a.what { color: var(--ink); justify-self: start; border-bottom: 1px solid var(--rule); }
 .rows a.what:hover { color: var(--mint); border-color: var(--mint); }
 
-/* the name starts as binary, one byte per row. the first time you hover (or tap) it, the
-   bits rebuild into pixel letters. after that, clicking flips it back and forth.
+/* the name starts as binary, one byte per row. on a first visit the bits rebuild into pixel
+   letters a moment after load (main.ts). after that, clicking flips it back and forth.
    positions come from PixelWord.astro, in em */
 .word {
   position: relative; cursor: pointer;
@@ -106,7 +106,7 @@ h1, h2, p { margin: 0; font-weight: 400; }
 }
 .word i.on { background: var(--mint); border-color: var(--mint); }
 .word i.extra { opacity: 0; }
-/* decoded: set on <html> once you've hovered it, remembered across visits */
+/* decoded: set on <html> once it has decoded, remembered across visits */
 [data-name="bit"] .word { width: var(--w1); transition-delay: .08s; }
 [data-name="bit"] .word i {
   transform: translate(calc(var(--x1) * 1em), calc(var(--y1) * 1em)) scale(var(--k));
