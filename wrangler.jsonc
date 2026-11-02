@@ -1,0 +1,11 @@
+// Cloudflare Workers: serves the built site as static files, nothing else.
+// Build command: bun run build. Deploy command: npx wrangler deploy
+{
+  "name": "xorwyrm-sh",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // unknown paths get dist/404.html with a 404 status
+    "not_found_handling": "404-page"
+  }
+}

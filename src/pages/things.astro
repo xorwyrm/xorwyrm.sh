@@ -1,0 +1,13 @@
+---
+import Window from '../layouts/Window.astro';
+import PixelWord from '../components/PixelWord.astro';
+import Project from '../components/Project.astro';
+import { projects } from '../data/site';
+---
+
+<Window title="things">
+  <h1 class="title hello" aria-label="things"><PixelWord word="things" /></h1>
+  <section class="list">
+    {projects.map((p) => <Project {...p} />)}
+  </section>
+</Window>

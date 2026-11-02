@@ -1,0 +1,14 @@
+---
+import Window from '../layouts/Window.astro';
+import PixelWord from '../components/PixelWord.astro';
+import { links } from '../data/site';
+---
+
+<Window title="links">
+  <h1 class="title hello" aria-label="links"><PixelWord word="links" /></h1>
+  <section class="rows">
+    {links.map((l) => (
+      <div class="row"><span class="when">{l.label}</span><a class="what" href={l.url}>{l.text}</a></div>
+    ))}
+  </section>
+</Window>

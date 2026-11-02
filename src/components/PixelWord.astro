@@ -1,0 +1,76 @@
+---
+// A word as binary that rebuilds itself into pixel letters. Used for the name on the home page
+// and the page titles. The bytes sit in a grid, three to a column; every square is placed
+// twice: where it sits in the binary (x0, y0) and where it lands in its letter (x1, y1).
+// [data-name="bit"] on <html> moves them; see global.css and main.ts.
+// Sizes are in em of the element, so it scales with its font-size.
+
+interface Props {
+  word: string;
+}
+const { word } = Astro.props;
+
+// 5×7 pixel letters; rows past the 7th are descenders. Add more as needed;
+// unknown characters get a solid block.
+const GLYPHS: Record<string, string[]> = {
+  b: ['X....', 'X....', 'XXXX.', 'X...X', 'X...X', 'X...X', 'XXXX.'],
+  g: ['.....', '.....', '.XXXX', 'X...X', 'X...X', 'X...X', '.XXXX', '....X', 'XXXX.'],
+  h: ['X....', 'X....', 'XXXX.', 'X...X', 'X...X', 'X...X', 'X...X'],
+  i: ['..X..', '.....', '.XX..', '..X..', '..X..', '..X..', '.XXX.'],
+  k: ['X....', 'X....', 'X..X.', 'X.X..', 'XX...', 'X.X..', 'X..X.'],
+  l: ['.XX..', '..X..', '..X..', '..X..', '..X..', '..X..', '.XXX.'],
+  n: ['.....', '.....', 'XXXX.', 'X...X', 'X...X', 'X...X', 'X...X'],
+  s: ['.....', '.....', '.XXXX', 'X....', '.XXX.', '....X', 'XXXX.'],
+  t: ['.X...', '.X...', 'XXXX.', '.X...', '.X...', '.X..X', '..XX.'],
+  '0': ['.XXX.', 'X...X', 'X..XX', 'X.X.X', 'XX..X', 'X...X', '.XXX.'],
+  '4': ['...X.', '..XX.', '.X.X.', 'X..X.', 'XXXXX', '...X.', '...X.'],
+};
+const BLOCK = Array(7).fill('XXXXX');
+
+const s = 0.2, g = 0.07; // binary: square size and the gap between squares
+const P = 0.105, dot = 0.107; // letters: pixel pitch, pixel size (a hair over, so pixels don't show seams)
+const ROWS = 3; // bytes per column
+const byteW = 8 * s + 7 * g, colGap = s + g;
+const chars = [...word];
+const cols = Math.ceil(chars.length / ROWS);
+const w0 = cols * byteW + (cols - 1) * colGap;
+const w1 = chars.length * 6 * P - P; // one empty pixel column between letters
+// tall enough for the letters, descenders included, so the gap below is the same for every word
+const glyphRows = Math.max(...chars.map((c) => (GLYPHS[c] ?? BLOCK).length));
+const h = Math.max(glyphRows * P, Math.min(chars.length, ROWS) * (s + g) - g);
+
+const bytes = chars.map((c) => c.charCodeAt(0).toString(2).padStart(8, '0'));
+const squares: { x0: number; y0: number; x1: number; y1: number; d: number; on: boolean; extra: boolean }[] = [];
+chars.forEach((c, i) => {
+  const glyph = GLYPHS[c] ?? BLOCK;
+  const dots = glyph.flatMap((row, r) => [...row].flatMap((p, col) => (p === 'X' ? [[col, r]] : [])));
+  const bx = Math.floor(i / ROWS) * (byteW + colGap), by = (i % ROWS) * (s + g);
+  // the byte's 8 bits each take a dot; letters with more dots get extra squares that fade in
+  for (let k = 0; k < Math.max(8, dots.length); k++) {
+    const [col, r] = dots[Math.min(k, dots.length - 1)];
+    const j = k % 8;
+    squares.push({
+      x0: bx + j * (s + g), y0: by,
+      x1: i * 6 * P + col * P, y1: r * P,
+      d: i * 110 + k * 9,
+      on: k < 8 && bytes[i][j] === '1',
+      extra: k >= 8,
+    });
+  }
+});
+const last = Math.max(...squares.map((q) => q.d));
+const f = (n: number) => n.toFixed(3);
+---
+
+<span
+  class="word"
+  title={bytes.join(' ')}
+  style={`--w0: ${f(w0)}em; --w1: ${f(w1)}em; --h: ${f(h)}em; --s: ${s}em; --k: ${f(dot / s)}`}
+>
+  {squares.map((q) => (
+    <i
+      class:list={{ on: q.on, extra: q.extra }}
+      style={`--x0: ${f(q.x0)}; --y0: ${f(q.y0)}; --x1: ${f(q.x1)}; --y1: ${f(q.y1)}; --d: ${q.d}ms; --dr: ${last - q.d}ms`}
+    />
+  ))}
+</span>

@@ -1,0 +1,128 @@
+:root {
+  --bg: #0d0b1c;
+  --ink: #ecebf7;
+  --body: #a9a5c8;
+  --soft: #9b97bc;
+  --pre: #8f8bb0;
+  --dim: #6d6993;
+  --faint: #4f4c74;
+  --rule: #23203d;
+  --mint: #7fd8b4;
+  --gap: 1.6rem; /* between blocks: name or title, text, lists, links */
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+/* type scales with the window: 14px on small screens, about 18px on a 2000px-wide one */
+html { font-size: clamp(14px, min(0.9vw, 1.7vh), 20px); background: var(--bg); }
+body {
+  min-height: 100svh;
+  color: var(--body);
+  font: 1rem/1.75 "DM Mono", ui-monospace, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--mint); outline-offset: 3px; }
+h1, h2, p { margin: 0; font-weight: 400; }
+
+/* the field fills the window behind everything */
+#field { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.no-webgl #field { display: none; }
+.no-webgl body {
+  background-image: radial-gradient(rgba(154, 152, 232, .1) 1px, transparent 1.5px);
+  background-size: 10px 10px;
+}
+/* page: bar on top, one column on the left, the planet gets the right side */
+.page {
+  position: relative; min-height: 100svh; display: flex; flex-direction: column;
+  padding: 2.1rem clamp(1.25rem, 8.4vw, 11rem) 3.6rem; /* bottom matches the header, so centring is exact */
+}
+.top { display: flex; justify-content: space-between; align-items: baseline; font-size: .86rem; }
+.home { color: var(--ink); font-weight: 500; }
+.home:hover { color: var(--mint); }
+.top nav { display: flex; gap: 1.15rem; }
+.top nav a { color: var(--dim); }
+.top nav a:hover { color: var(--ink); }
+.top nav a.on { color: var(--mint); }
+/* each page's content is centred on the planet; the page fade covers the change in height */
+.stage { flex: 1; display: flex; flex-direction: column; }
+.main { width: min(30rem, 100%); margin-block: auto; padding-block: 2.5rem; }
+
+@keyframes page-out { to { opacity: 0; } }
+@keyframes page-in { from { opacity: 0; transform: translateY(.4rem); } }
+/* no morphing between the two pages' stages */
+::view-transition-group(stage) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(stage), ::view-transition-new(stage) { animation-duration: .01s !important; animation-delay: 0s !important; }
+}
+
+/* home */
+.hero { font-size: 1rem; }
+.hero .pre { display: block; color: var(--pre); margin-bottom: .9rem; }
+.hero .word { font-size: 6.1rem; }
+.intro { margin-top: var(--gap); }
+.intro em { font-style: normal; font-weight: 500; color: var(--ink); }
+/* text has half its line-height above and below; the pixel words don't, so text-to-text gaps
+   take that back off to look the same */
+.more { display: inline-block; margin-top: calc(var(--gap) - .35rem); font-size: .86rem; color: var(--dim); }
+.more:hover { color: var(--mint); }
+
+/* other pages */
+.hello .word { display: block; }
+.title { font-size: 4.4rem; margin-bottom: var(--gap); }
+.lede a { color: var(--mint); }
+.lede a:hover { color: var(--ink); }
+
+/* projects */
+.proj { display: block; padding: .6rem 0; }
+.proj:first-child, .rows .row:first-child { padding-top: 0; }
+.proj .name { font-size: 1.07rem; font-weight: 500; color: var(--ink); }
+/* on the name's baseline it looks dropped next to the bigger name, so it's raised to centre on it */
+.proj .meta { font-size: .82rem; color: var(--dim); margin-left: .6rem; position: relative; top: -.09rem; }
+.proj .pd { display: block; font-size: .9rem; line-height: 1.6; color: var(--soft); margin-top: .2rem; }
+.proj:hover .name { color: var(--mint); }
+
+/* links */
+.rows .row { display: grid; grid-template-columns: 5.4rem 1fr; gap: 1rem; padding: .45rem 0; }
+.rows .when { color: var(--dim); }
+.rows a.what { color: var(--ink); justify-self: start; border-bottom: 1px solid var(--rule); }
+.rows a.what:hover { color: var(--mint); border-color: var(--mint); }
+
+/* the name starts as binary, one byte per row. the first time you hover (or tap) it, the
+   bits rebuild into pixel letters. after that, clicking flips it back and forth.
+   positions come from PixelWord.astro, in em */
+.word {
+  position: relative; cursor: pointer;
+  width: var(--w0); height: var(--h);
+  transition: width .5s cubic-bezier(.6, 0, .2, 1) .3s;
+}
+.word i {
+  position: absolute; left: 0; top: 0; width: var(--s); height: var(--s); box-sizing: border-box;
+  border: 1px solid rgba(154, 152, 232, .45); transform-origin: 0 0;
+  transform: translate(calc(var(--x0) * 1em), calc(var(--y0) * 1em));
+  transition: transform .6s cubic-bezier(.5, 0, .2, 1), background-color .3s, border-color .3s, opacity .3s;
+  transition-delay: var(--dr);
+}
+.word i.on { background: var(--mint); border-color: var(--mint); }
+.word i.extra { opacity: 0; }
+/* decoded: set on <html> once you've hovered it, remembered across visits */
+[data-name="bit"] .word { width: var(--w1); transition-delay: .08s; }
+[data-name="bit"] .word i {
+  transform: translate(calc(var(--x1) * 1em), calc(var(--y1) * 1em)) scale(var(--k));
+  background: var(--mint); border-color: var(--mint); opacity: 1;
+  transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hello * { transition-delay: 0s !important; transition-duration: .01s !important; }
+}
+
+/* narrow: the planet becomes a horizon at the bottom */
+@media (max-width: 760px) {
+  .page { padding: 1.4rem 1.25rem 1.6rem; }
+  .top nav { gap: .9rem; }
+  .main { padding-block: 2.5rem 1.5rem; }
+  .hero .word { font-size: 4.6rem; }
+  .title { font-size: 3.6rem; }
+  .rows .row { grid-template-columns: 1fr; gap: 0; }
+}

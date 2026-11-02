@@ -1,0 +1,15 @@
+---
+import Window from '../layouts/Window.astro';
+import PixelWord from '../components/PixelWord.astro';
+import { intro, site } from '../data/site';
+---
+
+<Window>
+  <h1 class="hero hello" aria-label={`hi, i'm ${site.name}`}>
+    <span class="pre" aria-hidden="true">hi, i'm</span>
+    <PixelWord word={site.name} />
+  </h1>
+
+  <p class="intro">{intro.split('*').map((part, i) => (i % 2 ? <em>{part}</em> : part))}</p>
+  <a class="more" href="/things">things i've made →</a>
+</Window>
