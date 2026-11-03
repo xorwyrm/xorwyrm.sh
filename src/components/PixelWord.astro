@@ -2,7 +2,8 @@
 // A word as binary that rebuilds itself into pixel letters. Used for the name on the home page
 // and the page titles. The bytes sit in a grid, three to a column; every square is placed
 // twice: where it sits in the binary (x0, y0) and where it lands in its letter (x1, y1).
-// [data-name="bit"] on <html> moves them; see global.css and main.ts.
+// [data-name="bit"] on <html> moves them; see global.css and main.ts. The word is a label for
+// a hidden checkbox, so without JS it still flips when clicked (just not remembered).
 // Sizes are in em of the element, so it scales with its font-size.
 
 interface Props {
@@ -62,15 +63,16 @@ const last = Math.max(...squares.map((q) => q.d));
 const f = (n: number) => n.toFixed(3);
 ---
 
-<span
+<label
   class="word"
   title={bytes.join(' ')}
   style={`--w0: ${f(w0)}em; --w1: ${f(w1)}em; --h: ${f(h)}em; --s: ${s}em; --k: ${f(dot / s)}`}
 >
+  <input type="checkbox" tabindex="-1" aria-hidden="true" />
   {squares.map((q) => (
     <i
       class:list={{ on: q.on, extra: q.extra }}
       style={`--x0: ${f(q.x0)}; --y0: ${f(q.y0)}; --x1: ${f(q.x1)}; --y1: ${f(q.y1)}; --d: ${q.d}ms; --dr: ${last - q.d}ms`}
     />
   ))}
-</span>
+</label>

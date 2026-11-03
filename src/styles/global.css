@@ -29,12 +29,23 @@ h1, h2, p { margin: 0; font-weight: 400; }
 /* the field fills the window behind everything */
 #field { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 .no-webgl #field { display: none; }
-.no-webgl body {
-  background-image: radial-gradient(rgba(154, 152, 232, .1) 1px, transparent 1.5px);
-  background-size: 10px 10px;
+/* the still, placed where field.ts puts the live planet (planet.webp is cropped 3% outside it) */
+.still { display: none; position: fixed; inset: 0; container-type: size; pointer-events: none; }
+.still::before {
+  --r: 62cqw; --cx: 50cqw; --cy: calc(100cqh + .45 * var(--r)); --R: calc(1.03 * var(--r));
+  content: ''; position: absolute; left: calc(var(--cx) - var(--R)); top: calc(var(--cy) - var(--R));
+  width: calc(2 * var(--R)); aspect-ratio: 1; background: url(/planet.webp) center / contain no-repeat;
 }
+@media (min-width: 760px) and (orientation: landscape) {
+  .still::before { --r: min(36cqh, 21cqw); --cx: min(74.5cqw, 95cqw - var(--r)); --cy: 50cqh; }
+}
+/* hidden, it isn't generated, so the image is only fetched when it's needed */
+.no-webgl .still { display: block; }
+@media (scripting: none) { .still { display: block; } }
 /* page: bar on top, one column on the left, the planet gets the right side */
 .page {
+  /* clicking around the planet shouldn't select text; only the content column (.main) can be */
+  user-select: none;
   position: relative; min-height: 100svh; display: flex; flex-direction: column;
   padding: 2.1rem clamp(1.25rem, 8.4vw, 11rem) 3.6rem; /* bottom matches the header, so centring is exact */
 }
@@ -47,14 +58,29 @@ h1, h2, p { margin: 0; font-weight: 400; }
 .top nav a.on { color: var(--mint); }
 /* each page's content is centred on the planet; the page fade covers the change in height */
 .stage { flex: 1; display: flex; flex-direction: column; }
-.main { width: min(30rem, 100%); margin-block: auto; padding-block: 2.5rem; }
+.main { width: min(30rem, 100%); margin-block: auto; padding-block: 2.5rem; user-select: text; }
 
+/* page changes are real page loads; the browser's view transitions (no JS) make them a fade:
+   the old content fades out, then the new content fades in with a small rise. they don't
+   overlap, so the two pages never show at once. browsers without them just load the page */
+@view-transition { navigation: auto; }
+.stage { view-transition-name: stage; }
+#field { view-transition-name: field; }
 @keyframes page-out { to { opacity: 0; } }
 @keyframes page-in { from { opacity: 0; transform: translateY(.4rem); } }
-/* no morphing between the two pages' stages */
-::view-transition-group(stage) { animation: none; }
+::view-transition-group(*) { animation: none; }
+::view-transition-old(*), ::view-transition-new(*) { mix-blend-mode: normal; }
+/* the header and background swap at once */
+::view-transition-old(root) { display: none; }
+::view-transition-new(root) { animation: none; }
+::view-transition-old(stage) { animation: page-out 100ms ease-in both; }
+::view-transition-new(stage) { animation: page-in 260ms cubic-bezier(.2, .7, .2, 1) 110ms both; }
+/* the new page picks up the planet where the old one left it (field.ts); the old picture
+   stays underneath for a moment in case the first new frame is late */
+::view-transition-old(field) { animation: page-out 150ms ease-in both; }
+::view-transition-new(field) { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(stage), ::view-transition-new(stage) { animation-duration: .01s !important; animation-delay: 0s !important; }
+  ::view-transition-old(*), ::view-transition-new(*) { animation-duration: .01s !important; animation-delay: 0s !important; }
 }
 
 /* home */
@@ -91,7 +117,9 @@ h1, h2, p { margin: 0; font-weight: 400; }
 
 /* the name starts as binary, one byte per row. on a first visit the bits rebuild into pixel
    letters a moment after load (main.ts). after that, clicking flips it back and forth.
-   positions come from PixelWord.astro, in em */
+   positions come from PixelWord.astro, in em. without JS it shows as letters, and clicking
+   flips it with the word's checkbox */
+.word input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }
 .word {
   position: relative; cursor: pointer;
   width: var(--w0); height: var(--h);
@@ -112,6 +140,15 @@ h1, h2, p { margin: 0; font-weight: 400; }
   transform: translate(calc(var(--x1) * 1em), calc(var(--y1) * 1em)) scale(var(--k));
   background: var(--mint); border-color: var(--mint); opacity: 1;
   transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
+}
+/* the same, without JS: letters until the checkbox is ticked */
+@media (scripting: none) {
+  .word:has(input:not(:checked)) { width: var(--w1); transition-delay: .08s; }
+  .word input:not(:checked) ~ i {
+    transform: translate(calc(var(--x1) * 1em), calc(var(--y1) * 1em)) scale(var(--k));
+    background: var(--mint); border-color: var(--mint); opacity: 1;
+    transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .hello * { transition-delay: 0s !important; transition-duration: .01s !important; }

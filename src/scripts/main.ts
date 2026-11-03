@@ -1,14 +1,13 @@
-import { navigate } from 'astro:transitions/client';
 import { startField } from './field';
 
-// Runs once. The canvas persists across page swaps; the rest of the page doesn't,
-// so anything that touches it re-syncs on astro:page-load.
+// Everything here is extra: the pages work without it (see global.css for the no-JS name toggle).
 
+// number keys switch pages
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
   if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
   const link = document.querySelector<HTMLAnchorElement>(`nav a[data-key="${e.key}"]`);
-  if (link && !link.classList.contains('on')) navigate(link.href);
+  if (link && !link.classList.contains('on')) link.click();
 });
 
 startField(document.getElementById('field') as HTMLCanvasElement);
@@ -19,7 +18,6 @@ startField(document.getElementById('field') as HTMLCanvasElement);
 // The decoded state is data-name="bit" on <html>; Window.astro sets it before paint.
 const NAME_KEY = 'name';
 const DECODE_AFTER = 1000; // ms
-let decodeTimer = 0;
 
 // 'bit' or 'binary'; anything else (unset, or a value we didn't write) counts as a first visit
 function storedName() {
@@ -32,25 +30,16 @@ function setName(decoded: boolean) {
   else delete document.documentElement.dataset.name;
   try { localStorage.setItem(NAME_KEY, decoded ? 'bit' : 'binary'); } catch { /* storage blocked */ }
 }
-// page swaps replace <html>'s attributes, so put the state back before the new page paints
-document.addEventListener('astro:after-swap', () => {
-  if (storedName() === 'bit') document.documentElement.dataset.name = 'bit';
-});
 
-// every pixel word (the name, the page titles) shares the one state
-function setupHello() {
-  const words = document.querySelectorAll<HTMLElement>('.hello');
-  words.forEach((hello) => {
-    hello.addEventListener('click', () => {
-      clearTimeout(decodeTimer);
-      setName(document.documentElement.dataset.name !== 'bit');
-    });
-  });
-  // first visit: decode on its own. someone who has switched it back to binary keeps binary
-  if (words.length && storedName() === null) {
-    clearTimeout(decodeTimer);
-    decodeTimer = window.setTimeout(() => { if (storedName() === null) setName(true); }, DECODE_AFTER);
-  }
+// every pixel word (the name, the page titles) shares the one state. each word is a label for
+// a hidden checkbox, which is what the no-JS toggle runs on; here it just reports the click
+const toggles = document.querySelectorAll<HTMLInputElement>('.word input');
+let decodeTimer = 0;
+toggles.forEach((t) => t.addEventListener('change', () => {
+  clearTimeout(decodeTimer);
+  setName(document.documentElement.dataset.name !== 'bit');
+}));
+// first visit: decode on its own. someone who has switched it back to binary keeps binary
+if (toggles.length && storedName() === null) {
+  decodeTimer = window.setTimeout(() => { if (storedName() === null) setName(true); }, DECODE_AFTER);
 }
-
-document.addEventListener('astro:page-load', setupHello);

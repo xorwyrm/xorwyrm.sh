@@ -2,7 +2,6 @@
 import '@fontsource/dm-mono/400.css';
 import '@fontsource/dm-mono/500.css';
 import '../styles/global.css';
-import { ClientRouter } from 'astro:transitions';
 import { site } from '../data/site';
 
 interface Props {
@@ -11,12 +10,6 @@ interface Props {
 
 const { title } = Astro.props;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
-// page changes: the old content fades out, then the new content fades in with a small rise
-// (keyframes in global.css). they don't overlap, so the two pages never show at once
-const swap = {
-  old: { name: 'page-out', duration: '100ms', easing: 'ease-in', fillMode: 'both' },
-  new: { name: 'page-in', duration: '260ms', delay: '110ms', easing: 'cubic-bezier(.2, .7, .2, 1)', fillMode: 'both' },
-};
 const pages = [
   { href: '/', label: 'about' },
   { href: '/things', label: 'things' },
@@ -25,7 +18,7 @@ const pages = [
 ---
 
 <!doctype html>
-<html lang="en" transition:animate="none">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -37,10 +30,11 @@ const pages = [
       // returning visitors who've decoded the name see it as letters straight away (see main.ts)
       try { if (localStorage.getItem('name') === 'bit') document.documentElement.dataset.name = 'bit'; } catch {}
     </script>
-    <ClientRouter />
   </head>
   <body>
-    <canvas id="field" aria-hidden="true" transition:persist></canvas>
+    <!-- a still of the planet, for when it can't be drawn live (no JS or no WebGL) -->
+    <div class="still" aria-hidden="true"></div>
+    <canvas id="field" aria-hidden="true"></canvas>
 
     <div class="page">
       <header class="top">
@@ -58,7 +52,7 @@ const pages = [
       </header>
 
       <!-- the stage is the same size on every page, so each page fades out and in where it sits -->
-      <div class="stage" transition:name="stage" transition:animate={{ forwards: swap, backwards: swap }}>
+      <div class="stage">
         <main class="main">
           <slot />
         </main>
