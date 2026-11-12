@@ -76,8 +76,9 @@ const INPUT_QUEUE: usize = 64;
 /// a flood, and it waits in the sender's own queue instead of costing work here.
 const IN_RATE: f64 = 64_000.0;
 const IN_BURST: f64 = 256_000.0;
-/// A session is sent this many bytes a second at most, after a first allowance (a whole big
-/// screen). Windows up to about 250 columns draw at full speed; bigger ones get fewer frames.
+/// When the server is busy, a session is sent this many bytes a second at most, after a first
+/// allowance (a whole big screen): very big windows get fewer frames then. On a quiet server
+/// every window draws at full speed.
 const OUT_RATE: f64 = 1_500_000.0;
 const OUT_BURST: f64 = 4_000_000.0;
 /// And all sessions together this many (about 190 Mbit/s): when it runs short everyone gets
@@ -546,10 +547,14 @@ async fn run(
                     break;
                 }
                 budget = EVENTS_PER_FRAME;
-                // a frame is only drawn when there's allowance for it, this session's and
-                // everyone's: a big window, or a busy server, gets fewer frames
-                allowance = (allowance + dt as f64 * OUT_RATE).min(OUT_BURST);
-                if allowance < 0.0 || shared.out.load(Ordering::Relaxed) < 0 {
+                // A frame is only drawn when there's allowance for it. Everyone's allowance is
+                // the hard limit. A session's own share only counts once that's half used:
+                // on a quiet server a big window draws at full speed, and on a busy one it
+                // gets fewer frames so the rest keep theirs. It can owe a second at most, so
+                // it isn't shut out for long when things get busy.
+                allowance = (allowance + dt as f64 * OUT_RATE).clamp(-OUT_RATE, OUT_BURST);
+                let left = shared.out.load(Ordering::Relaxed);
+                if left < 0 || (allowance < 0.0 && left < ALL_OUT_RATE / 2) {
                     continue;
                 }
                 if let Some((w, h)) = resized.take() {
