@@ -129,6 +129,12 @@ h1, h2, p { margin: 0; font-weight: 400; }
   transition: transform .6s cubic-bezier(.5, 0, .2, 1), background-color .3s, border-color .3s, opacity .3s;
   transition-delay: var(--dr);
 }
+/* the letters as one shape, under the squares (PixelWord.astro). hidden until the squares
+   have landed, and gone the moment they leave */
+.word .solid {
+  position: absolute; left: 0; top: 0; width: var(--w1); height: var(--h); overflow: visible;
+  fill: var(--mint); opacity: 0; transition: opacity .2s;
+}
 .word i.on { background: var(--mint); border-color: var(--mint); }
 .word i.extra { opacity: 0; }
 /* decoded: set on <html> once it has decoded, remembered across visits */
@@ -138,6 +144,7 @@ h1, h2, p { margin: 0; font-weight: 400; }
   background: var(--mint); border-color: var(--mint); opacity: 1;
   transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
 }
+[data-name="bit"] .word .solid { opacity: 1; transition-delay: calc(var(--last) + 600ms); }
 /* the same, without JS: letters until the checkbox is ticked */
 @media (scripting: none) {
   .word:has(input:not(:checked)) { width: var(--w1); transition-delay: .08s; }
@@ -146,6 +153,7 @@ h1, h2, p { margin: 0; font-weight: 400; }
     background: var(--mint); border-color: var(--mint); opacity: 1;
     transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
   }
+  .word input:not(:checked) ~ .solid { opacity: 1; transition-delay: calc(var(--last) + 600ms); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hello * { transition-delay: 0s !important; transition-duration: .01s !important; }

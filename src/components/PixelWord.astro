@@ -61,14 +61,20 @@ chars.forEach((c, i) => {
 });
 const last = Math.max(...squares.map((q) => q.d));
 const f = (n: number) => n.toFixed(3);
+// the letters again as one shape, laid under the squares once they've landed. side by side,
+// the squares' anti-aliased edges each only partly cover the pixel they share, so the
+// background shows through as thin seams; one path has no inner edges, so it fills them
+const cells = new Set(squares.map((q) => `${f(q.x1)},${f(q.y1)}`));
+const solid = [...cells].map((c) => `M${c}h${dot}v${dot}h-${dot}z`).join('');
 ---
 
 <label
   class="word"
   title={bytes.join(' ')}
-  style={`--w0: ${f(w0)}em; --w1: ${f(w1)}em; --h: ${f(h)}em; --s: ${s}em; --k: ${f(dot / s)}`}
+  style={`--w0: ${f(w0)}em; --w1: ${f(w1)}em; --h: ${f(h)}em; --s: ${s}em; --k: ${f(dot / s)}; --last: ${last}ms`}
 >
   <input type="checkbox" tabindex="-1" aria-hidden="true" />
+  <svg class="solid" viewBox={`0 0 ${f(w1)} ${f(h)}`} aria-hidden="true"><path d={solid} /></svg>
   {squares.map((q) => (
     <i
       class:list={{ on: q.on, extra: q.extra }}
