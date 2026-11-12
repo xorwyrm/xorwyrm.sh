@@ -2,3 +2,5 @@ node_modules/
 dist/
 .astro/
 .wrangler/
+ssh/target/
+ssh/host_key*
