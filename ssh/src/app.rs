@@ -39,7 +39,7 @@ pub enum Page {
 const NAV: [(Page, &str); 3] = [(Page::About, "about"), (Page::Things, "things"), (Page::Links, "links")];
 
 impl Page {
-    /// A page from a path, as in `ssh -t xorwyrm.sh things`.
+    /// A page from a path, as in `ssh -t term.xorwyrm.sh things`.
     pub fn from_path(p: &str) -> Page {
         match p.trim().trim_matches('/').to_ascii_lowercase().as_str() {
             "" | "about" | "index" | "home" => Page::About,
@@ -752,7 +752,7 @@ fn base64(data: &[u8]) -> String {
     s
 }
 
-/// The site as plain text, for `ssh xorwyrm.sh` without a terminal (piped, or `ssh -T`).
+/// The site as plain text, for `ssh term.xorwyrm.sh` without a terminal (piped, or `ssh -T`).
 pub fn plain(page: Page) -> String {
     let s = site();
     let mut o = String::new();
@@ -767,7 +767,7 @@ pub fn plain(page: Page) -> String {
         Page::About => {
             o.push_str(&format!("hi, i'm {}\n\n", s.site.name));
             wrapped(&mut o, &s.intro.replace('*', ""), "");
-            o.push_str("\nthings i've made: ssh xorwyrm.sh things\n");
+            o.push_str("\nthings i've made: ssh term.xorwyrm.sh things\n");
         }
         Page::Things => {
             o.push_str("things\n");
@@ -801,6 +801,98 @@ mod tests {
         // "research" stays emphasised and the full stop after it doesn't
         assert_eq!(lines[1][0], ("research".to_string(), true));
         assert_eq!(lines[1][1], (". nixos".to_string(), false));
+    }
+
+    fn rng(mut seed: u64) -> impl FnMut(u64) -> u64 {
+        move |below| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed % below.max(1)
+        }
+    }
+
+    /// Whatever a client sends, at whatever window size, nothing panics: random bytes, real
+    /// and broken escape sequences, clicks on and off the screen, resizes part way through.
+    /// (Run without optimisation, this also catches arithmetic that overflows.)
+    #[test]
+    fn survives_whatever_a_client_sends() {
+        use crate::input::Parser;
+        use crate::term::Screen;
+        const PIECES: [&[u8]; 40] = [
+            b"\x1b[<0;", b"\x1b[<64;", b"\x1b[<65;", b"\x1b[<35;", b"\x1b[<", b";", b"M", b"m", b"\x1b[", b"\x1bO",
+            b"\x1b", b"\x1b\x1b", b"\x1b[M", b"A", b"B", b"C", b"D", b"~", b"5", b"6", b"\t", b"\r", b"j", b"k", b"h",
+            b"l", b"1", b"2", b"3", b" ", b"Z", b"H", b"F", b"-", b"99999", b"2147483647", b"-2147483648", b"\xff",
+            b"\xe2\x96", b"\xf0\x9f\x98\x80",
+        ];
+        let mut r = rng(0x2545_f491_4f6c_dd1d);
+        // the sizes main.rs lets through: 10 to 500 across, 5 to 200 down
+        let size = |r: &mut dyn FnMut(u64) -> u64| match r(10) {
+            0 => (10, 5),
+            1 => (10 + r(491) as i32, 5 + r(196) as i32),
+            2 => (10 + r(30) as i32, 5 + r(196) as i32),
+            3 => (10 + r(491) as i32, 5 + r(12) as i32),
+            _ => (10 + r(150) as i32, 5 + r(50) as i32),
+        };
+        for round in 0..160 {
+            let (w, h) = size(&mut r);
+            let page = [Page::About, Page::Things, Page::Links, Page::NotFound][r(4) as usize];
+            let mut app = App::new(w, h, page, [None, Some(false), Some(true)][r(3) as usize]);
+            let (mut w, mut h) = (w, h);
+            let mut parser = Parser::default();
+            let mut screen = Screen::new();
+            let mut out = Vec::new();
+            for _ in 0..24 {
+                let mut bytes: Vec<u8> = Vec::new();
+                for _ in 0..r(12) {
+                    match r(4) {
+                        // a well-formed mouse report, on or near the screen
+                        0 => {
+                            let btn = [0, 0, 1, 2, 3, 32, 35, 64, 65][r(9) as usize];
+                            let (x, y) = (r(w as u64 + 4) as i32 - 1, r(h as u64 + 4) as i32 - 1);
+                            let fin = if r(4) == 0 { 'm' } else { 'M' };
+                            bytes.extend_from_slice(format!("\x1b[<{btn};{x};{y}{fin}").as_bytes());
+                        }
+                        1 => bytes.extend((0..r(20)).map(|_| r(256) as u8)),
+                        _ => bytes.extend_from_slice(PIECES[r(PIECES.len() as u64) as usize]),
+                    }
+                }
+                for ev in parser.feed(&bytes) {
+                    app.input(ev);
+                }
+                app.tick(r(101) as f32 / 1000.0);
+                if r(6) == 0 {
+                    (w, h) = size(&mut r);
+                    app.resize(w, h);
+                    screen.invalidate();
+                }
+                let frame = app.draw();
+                assert_eq!((frame.w, frame.h), (w, h), "round {round}");
+                out.clear();
+                out.extend(app.take_output());
+                screen.draw(&frame, &mut out);
+                app.take_name();
+            }
+        }
+    }
+
+    /// Every width, at the heights where the layout changes, lays out and draws.
+    #[test]
+    fn every_width_lays_out() {
+        for w in 10..=500 {
+            for h in [5, 6, 7, 8, 12, 15, 16, 17, 24, 40, 200] {
+                // the tall, wide ones are slow to draw and no different in kind: sample them
+                if (w > 160 || h > 40) && w % 23 != 0 {
+                    continue;
+                }
+                for page in [Page::About, Page::Things, Page::Links, Page::NotFound] {
+                    let mut app = App::new(w, h, page, Some(true));
+                    app.tick(0.04);
+                    let frame = app.draw();
+                    assert_eq!((frame.w, frame.h), (w, h));
+                }
+            }
+        }
     }
 
     #[test]

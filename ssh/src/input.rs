@@ -177,7 +177,8 @@ fn sgr_mouse(params: &[u8], fin: u8) -> Option<Event> {
     let s = std::str::from_utf8(params).ok()?;
     let mut it = s.split(';').map(|p| p.parse::<i32>().ok());
     let (btn, x, y) = (it.next()??, it.next()??, it.next()??);
-    let (x, y) = (x - 1, y - 1);
+    // whatever numbers arrive, what comes out is a place on (or just off) a screen
+    let (x, y) = (x.clamp(0, 10_000) - 1, y.clamp(0, 10_000) - 1);
     let kind = if btn & 64 != 0 {
         if btn & 1 == 0 { Mouse::ScrollUp } else { Mouse::ScrollDown }
     } else if btn & 32 != 0 {
@@ -220,5 +221,27 @@ mod tests {
         assert!(p.feed(b"\x1b[<0;1").is_empty());
         assert_eq!(p.feed(b"0;5m"), vec![Event::Mouse(Mouse::Release, 9, 4)]);
         assert_eq!(p.feed(b"\x1b"), vec![Event::Key(Key::Esc)]);
+    }
+
+    #[test]
+    fn absurd_numbers_are_tamed() {
+        let mut p = Parser::default();
+        assert_eq!(
+            p.feed(b"\x1b[<0;-2147483648;2147483647M"),
+            vec![Event::Mouse(Mouse::Press, -1, 9_999)]
+        );
+        // too big for a number at all: not an event
+        assert!(p.feed(b"\x1b[<0;99999999999;1M").is_empty());
+    }
+
+    #[test]
+    fn junk_is_not_kept() {
+        let mut p = Parser::default();
+        // an escape sequence that never ends
+        for _ in 0..100 {
+            p.feed(&[b'\x1b', b'[', b'1', b';', b'1', b';', b'1', b';']);
+            p.feed(&[b'0'; 1000]);
+        }
+        assert!(p.pending.len() <= 4096);
     }
 }
