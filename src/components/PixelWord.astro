@@ -1,10 +1,15 @@
 ---
 // A word as binary that rebuilds itself into pixel letters. Used for the name on the home page
 // and the page titles. The bytes sit in a grid, three to a column; every square is placed
-// twice: where it sits in the binary (x0, y0) and where it lands in its letter (x1, y1).
+// twice: where it sits in the binary (a, b, c) and where it lands in its letter (x1, y1).
 // [data-name="bit"] on <html> moves them; see global.css and main.ts. The word is a label for
 // a hidden checkbox, so without JS it still flips when clicked (just not remembered).
-// Sizes are in em of the element, so it scales with its font-size.
+// Sizes are in em of the element, so it scales with its font-size. The squares are SVG rects
+// in a viewBox where one unit is 1em. CSS moves them by percentages of that box, not lengths:
+// Chrome scales stored lengths when the page is zoomed, which would set every square moving.
+// They're drawn with crisp edges, so the sizes are snapped to whole screen pixels (snapWord,
+// Window.astro): the letters' pitch, and in the binary the square size and gap, which every
+// binary position is built from (a squares and b gaps across, c of each down).
 
 interface Props {
   word: string;
@@ -29,7 +34,7 @@ const GLYPHS: Record<string, string[]> = {
 const BLOCK = Array(7).fill('XXXXX');
 
 const s = 0.2, g = 0.07; // binary: square size and the gap between squares
-const P = 0.105, dot = 0.107; // letters: pixel pitch, pixel size (a hair over, so pixels don't show seams)
+const P = 0.105; // letters: pixel pitch, and the size of each pixel
 const ROWS = 3; // bytes per column
 const byteW = 8 * s + 7 * g, colGap = s + g;
 const chars = [...word];
@@ -41,18 +46,19 @@ const glyphRows = Math.max(...chars.map((c) => (GLYPHS[c] ?? BLOCK).length));
 const h = Math.max(glyphRows * P, Math.min(chars.length, ROWS) * (s + g) - g);
 
 const bytes = chars.map((c) => c.charCodeAt(0).toString(2).padStart(8, '0'));
-const squares: { x0: number; y0: number; x1: number; y1: number; d: number; on: boolean; extra: boolean }[] = [];
+const squares: { a: number; b: number; c: number; x1: number; y1: number; d: number; on: boolean; extra: boolean }[] = [];
 chars.forEach((c, i) => {
   const glyph = GLYPHS[c] ?? BLOCK;
   const dots = glyph.flatMap((row, r) => [...row].flatMap((p, col) => (p === 'X' ? [[col, r]] : [])));
-  const bx = Math.floor(i / ROWS) * (byteW + colGap), by = (i % ROWS) * (s + g);
+  const col = Math.floor(i / ROWS), row = i % ROWS;
   // the byte's 8 bits each take a dot; letters with more dots get extra squares that fade in
   for (let k = 0; k < Math.max(8, dots.length); k++) {
-    const [col, r] = dots[Math.min(k, dots.length - 1)];
+    const [dx, dy] = dots[Math.min(k, dots.length - 1)];
     const j = k % 8;
+    // a column of bytes is 8 squares and 7 gaps wide, plus a square and a gap between columns
     squares.push({
-      x0: bx + j * (s + g), y0: by,
-      x1: i * 6 * P + col * P, y1: r * P,
+      a: 9 * col + j, b: 8 * col + j, c: row,
+      x1: i * 6 * P + dx * P, y1: dy * P,
       d: i * 110 + k * 9,
       on: k < 8 && bytes[i][j] === '1',
       extra: k >= 8,
@@ -61,24 +67,46 @@ chars.forEach((c, i) => {
 });
 const last = Math.max(...squares.map((q) => q.d));
 const f = (n: number) => n.toFixed(3);
-// the letters again as one shape, laid under the squares once they've landed. side by side,
-// the squares' anti-aliased edges each only partly cover the pixel they share, so the
-// background shows through as thin seams; one path has no inner edges, so it fills them
-const cells = new Set(squares.map((q) => `${f(q.x1)},${f(q.y1)}`));
-const solid = [...cells].map((c) => `M${c}h${dot}v${dot}h-${dot}z`).join('');
+const wMax = Math.max(w0, w1);
+const pct = (n: number, of: number) => `${((n / of) * 100).toFixed(4)}%`;
+// snapWord sets the snapped sizes; these are unsnapped, until it does
+const sizes = `--sx: ${pct(s, wMax)}; --gx: ${pct(g, wMax)}; --sy: ${pct(s, h)}; --gy: ${pct(g, h)}; --ks: 1`;
+// a square's outline: four thin rects inside its edges, drawn once and reused by every square.
+// not a stroke: any stroke in the svg makes Chrome blend every edge in it, crisp or not.
+// about 1px thick here; snapWord makes it a whole number of screen pixels
+const id = `edge-${Math.random().toString(36).slice(2, 8)}`;
+const t = 1 / 62;
 ---
 
 <label
   class="word"
   title={bytes.join(' ')}
-  style={`--w0: ${f(w0)}em; --w1: ${f(w1)}em; --h: ${f(h)}em; --s: ${s}em; --k: ${f(dot / s)}; --last: ${last}ms`}
+  data-p={P}
+  data-s={s}
+  data-g={g}
+  style={`--w0: ${f(w0)}em; --w1: ${f(w1)}em; --wm: ${f(wMax)}em; --h: ${f(h)}em; --k: ${f(P / s)}; ${sizes}`}
 >
   <input type="checkbox" tabindex="-1" aria-hidden="true" />
-  <svg class="solid" viewBox={`0 0 ${f(w1)} ${f(h)}`} aria-hidden="true"><path d={solid} /></svg>
-  {squares.map((q) => (
-    <i
-      class:list={{ on: q.on, extra: q.extra }}
-      style={`--x0: ${f(q.x0)}; --y0: ${f(q.y0)}; --x1: ${f(q.x1)}; --y1: ${f(q.y1)}; --d: ${q.d}ms; --dr: ${last - q.d}ms`}
-    />
-  ))}
+  <svg viewBox={`0 0 ${f(wMax)} ${f(h)}`} aria-hidden="true">
+    <defs>
+      <g id={id}>
+        <rect width={s} height={t} />
+        <rect y={s - t} width={s} height={t} />
+        <rect y={t} width={t} height={s - 2 * t} />
+        <rect x={s - t} y={t} width={t} height={s - 2 * t} />
+      </g>
+    </defs>
+    {squares.map((q) => (
+      <g
+        class:list={['sq', { on: q.on, extra: q.extra }]}
+        style={`--a: ${q.a}; --b: ${q.b}; --c: ${q.c}; --x1: ${pct(q.x1, wMax)}; --y1: ${pct(q.y1, h)}; --d: ${q.d}ms; --dr: ${last - q.d}ms`}
+      >
+        <rect width={s} height={s} />
+        <use class="edge" href={`#${id}`} />
+      </g>
+    ))}
+  </svg>
 </label>
+<!-- before it's painted: snap the word's sizes to whole screen pixels (snapWord, Window.astro).
+     page swaps and resizes are handled in main.ts -->
+<script is:inline>snapWord(document.currentScript.previousElementSibling);</script>

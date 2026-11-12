@@ -7,7 +7,9 @@ interface Props {
 const { name, url, desc } = Astro.props;
 ---
 
-<a class="proj" href={url}>
-  <span class="name">{name}</span>
+<!-- the whole project is the link. not draggable, so dragging across it selects its text instead
+     of dragging the link (main.ts keeps a finished selection from counting as a click) -->
+<a class="proj" href={url} draggable="false">
+  <span class="name ul">{name}</span>
   <span class="pd">{desc}</span>
 </a>

@@ -8,7 +8,7 @@ import { links } from '../data/site';
   <h1 class="title hello" aria-label="links"><PixelWord word="links" /></h1>
   <section class="rows">
     {links.map((l) => (
-      <div class="row"><span class="when">{l.label}</span><a class="what" href={l.url}>{l.text}</a></div>
+      <div class="row"><span class="label">{l.label}</span><a class="text ul" href={l.url}>{l.text}</a></div>
     ))}
   </section>
 </Window>

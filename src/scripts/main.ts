@@ -14,6 +14,19 @@ document.addEventListener('keydown', (e) => {
 
 startField(document.getElementById('field') as HTMLCanvasElement);
 
+// a project is one big link that you can also select text in (Project.astro). letting go after
+// dragging out a selection in it would follow the link; don't. a plain click (no drag) or a key
+// press still does. capture, so it runs before the router's click handler
+let pressedAt: [number, number] | null = null;
+document.addEventListener('pointerdown', (e) => { pressedAt = [e.clientX, e.clientY]; }, true);
+document.addEventListener('click', (e) => {
+  const card = (e.target as Element | null)?.closest?.('.proj');
+  if (!card || e.detail === 0 || !pressedAt) return;
+  const dragged = Math.hypot(e.clientX - pressedAt[0], e.clientY - pressedAt[1]) > 4;
+  const sel = getSelection();
+  if (dragged && sel && !sel.isCollapsed && sel.containsNode(card, true)) e.preventDefault();
+}, true);
+
 // a swap replaces <html>'s attributes with the new page's; carry ours over before it paints
 // (data-name: the name's state, below. no-webgl: set by field.ts)
 document.addEventListener('astro:before-swap', (e) => {
@@ -22,6 +35,22 @@ document.addEventListener('astro:before-swap', (e) => {
   if (from.dataset.name) to.dataset.name = from.dataset.name;
   else delete to.dataset.name;
 });
+
+// pixel words are snapped to whole screen pixels as they're parsed (snapWord, Window.astro). a
+// swap's new page doesn't run those inline scripts again, and resizing or zooming changes the
+// sizes, so snap them again then
+declare global { interface Window { snapWord(w: HTMLElement): void } }
+const snapWords = () => document.querySelectorAll<HTMLElement>('.word').forEach((w) => window.snapWord(w));
+document.addEventListener('astro:after-swap', snapWords);
+addEventListener('resize', snapWords);
+// zooming, or moving to a screen with a different pixel density, doesn't always fire resize.
+// the change event can come before devicePixelRatio has caught up, so wait a frame
+function watchDensity() {
+  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener('change', () => {
+    requestAnimationFrame(() => { snapWords(); watchDensity(); });
+  }, { once: true });
+}
+watchDensity();
 
 // "hi, i'm <binary>": on a first visit the bits rebuild themselves into pixel letters a moment
 // after the page loads (CSS transitions, positions from PixelWord.astro). That's remembered;

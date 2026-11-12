@@ -1,6 +1,4 @@
 ---
-import '@fontsource/dm-mono/400.css';
-import '@fontsource/dm-mono/500.css';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
 import { site } from '../data/site';
@@ -37,6 +35,38 @@ const pages = [
     <script is:inline>
       // returning visitors who've decoded the name see it as letters straight away (see main.ts)
       try { if (localStorage.getItem('name') === 'bit') document.documentElement.dataset.name = 'bit'; } catch {}
+      // a pixel word's squares are drawn with crisp edges (global.css), so their sizes have to
+      // be whole screen pixels or some come out a pixel bigger than others: the letters' pitch
+      // (by scaling the whole word, under half a screen pixel per letter pixel), and the binary's
+      // square size and gap. sizes are percentages of the svg's box (see PixelWord.astro)
+      window.snapWord = (w) => {
+        const fs = parseFloat(getComputedStyle(w).fontSize), d = devicePixelRatio;
+        const p = +w.dataset.p, s = +w.dataset.s, g = +w.dataset.g;
+        const vb = w.querySelector('svg').viewBox.baseVal;
+        const unit = Math.max(1, Math.round(p * fs * d)) / p; // screen px per svg unit (an em)
+        const snap = (n) => Math.max(1, Math.round(n * unit)) / unit;
+        const su = snap(s), gu = snap(g);
+        const pc = (n, of) => (n / of) * 100 + '%';
+        const vars = {
+          '--snap': unit / d / fs,
+          '--sx': pc(su, vb.width), '--gx': pc(gu, vb.width), '--sy': pc(su, vb.height), '--gy': pc(gu, vb.height),
+          '--ks': su / s,
+        };
+        // the outline: about 1px, a whole number of screen px. it's inside the square, which is
+        // scaled by --ks, so it's set before that
+        const t = Math.max(1, Math.round(d)) / unit / (su / s);
+        const key = JSON.stringify(vars) + t;
+        if (w.dataset.snapped === key) return;
+        w.dataset.snapped = key;
+        const [top, bottom, left, right] = w.querySelectorAll('defs rect');
+        const set = (r, x, y, rw, rh) => { r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', rw); r.setAttribute('height', rh); };
+        set(top, 0, 0, s, t); set(bottom, 0, s - t, s, t); set(left, 0, t, t, s - 2 * t); set(right, s - t, t, t, s - 2 * t);
+        // new sizes, not a move: no transitions while they're applied
+        w.classList.add('snapping');
+        for (const k in vars) w.style.setProperty(k, vars[k]);
+        w.getBoundingClientRect();
+        w.classList.remove('snapping');
+      };
     </script>
     <!-- with JS, pages swap in place and the planet keeps running; without it, links just load -->
     <ClientRouter />

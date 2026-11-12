@@ -12,6 +12,28 @@
   color-scheme: dark;
 }
 
+/* the text is IBM Plex Sans, a proportional font on purpose. in a monospace every letter gets
+   the same width, so narrow ones (i, t, l, r) stand in holes and small words come apart:
+   "github" read as "gi thub". the font's own ascent is tall, which would set text low in its
+   line; these put it back in the middle, where the gaps around the pixel words expect it */
+@font-face {
+  font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap;
+  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  ascent-override: 78.25%; descent-override: 21.75%; line-gap-override: 0%;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-weight: 500; font-display: swap;
+  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+  ascent-override: 78.25%; descent-override: 21.75%; line-gap-override: 0%;
+}
+/* Plex's latin file has no → (the "more" links), so that one comes from Monaspace Neon. the
+   range keeps its file from loading on pages without an arrow */
+@font-face {
+  font-family: "Arrow"; font-display: swap;
+  src: url("@fontsource/monaspace-neon/files/monaspace-neon-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+2192;
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 /* type scales with the window: 14px on small screens, about 18px on a 2000px-wide one */
@@ -19,10 +41,18 @@ html { font-size: clamp(14px, min(0.9vw, 1.7vh), 20px); background: var(--bg); }
 body {
   min-height: 100svh;
   color: var(--body);
-  font: 1rem/1.75 "DM Mono", ui-monospace, monospace;
+  font: 1rem/1.75 "IBM Plex Sans", "Arrow", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
+/* underlined links (project names, the links page): a real underline, so it breaks around
+   letters that reach below it (g, y, p, f) */
+.ul {
+  text-decoration: underline 1px var(--faint); text-underline-offset: .2em; text-decoration-skip-ink: auto;
+}
+/* a mint tint, keeping each text's own colour (the browser's default is a bright blue that turns
+   everything white) */
+::selection { background: rgba(127, 216, 180, .22); }
 a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--mint); outline-offset: 3px; }
 h1, h2, p { margin: 0; font-weight: 400; }
 
@@ -88,29 +118,28 @@ h1, h2, p { margin: 0; font-weight: 400; }
 .hero .word { font-size: 6.1rem; }
 .intro { margin-top: var(--gap); }
 .intro em { font-style: normal; font-weight: 500; color: var(--ink); }
-/* text has half its line-height above and below; the pixel words don't, so text-to-text gaps
-   take that back off to look the same */
+/* the arrow link under a page's text (home, 404). text has half its line-height above and
+   below; the pixel words don't, so text-to-text gaps take that back off to look the same */
 .more { display: inline-block; margin-top: calc(var(--gap) - .35rem); font-size: .86rem; color: var(--dim); }
 .more:hover { color: var(--mint); }
 
 /* other pages */
 .hello .word { display: block; }
 .title { font-size: 4.4rem; margin-bottom: var(--gap); }
-.lede a { color: var(--mint); }
-.lede a:hover { color: var(--ink); }
 
 /* projects */
 .proj { display: block; padding: .6rem 0; }
 .proj:first-child, .rows .row:first-child { padding-top: 0; }
+/* the whole project is the link; its name is underlined like the links page's links */
 .proj .name { font-size: 1.07rem; font-weight: 500; color: var(--ink); }
 .proj .pd { display: block; font-size: .9rem; line-height: 1.6; color: var(--soft); margin-top: .2rem; }
-.proj:hover .name { color: var(--mint); }
+.proj:hover .name { color: var(--mint); text-decoration-color: var(--mint); }
 
 /* links */
-.rows .row { display: grid; grid-template-columns: 5.4rem 1fr; gap: 1rem; padding: .45rem 0; align-items: baseline; }
-.rows .when { color: var(--dim); }
-.rows a.what { color: var(--ink); justify-self: start; border-bottom: 1px solid var(--rule); }
-.rows a.what:hover { color: var(--mint); border-color: var(--mint); }
+.rows .row { display: grid; grid-template-columns: 4.6rem 1fr; gap: 1rem; padding: .45rem 0; align-items: baseline; }
+.rows .label { color: var(--dim); }
+.rows a.text { color: var(--ink); justify-self: start; }
+.rows a.text:hover { color: var(--mint); text-decoration-color: var(--mint); }
 
 /* the name starts as binary, one byte per row. on a first visit the bits rebuild into pixel
    letters a moment after load (main.ts). after that, clicking flips it back and forth.
@@ -119,41 +148,44 @@ h1, h2, p { margin: 0; font-weight: 400; }
 .word input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }
 .word {
   position: relative; cursor: pointer;
-  width: var(--w0); height: var(--h);
+  /* --snap: snapWord's nudge to whole screen pixels (Window.astro). a scale, not a new font
+     size: the squares are placed in em, so a new font size would set them all moving */
+  width: calc(var(--w0) * var(--snap, 1)); height: calc(var(--h) * var(--snap, 1));
   transition: width .5s cubic-bezier(.6, 0, .2, 1) .3s;
 }
-.word i {
-  position: absolute; left: 0; top: 0; width: var(--s); height: var(--s); box-sizing: border-box;
-  border: 1px solid rgba(154, 152, 232, .45); transform-origin: 0 0;
-  transform: translate(calc(var(--x0) * 1em), calc(var(--y0) * 1em));
-  transition: transform .6s cubic-bezier(.5, 0, .2, 1), background-color .3s, border-color .3s, opacity .3s;
+.word svg {
+  position: absolute; left: 0; top: 0; overflow: visible;
+  width: calc(var(--wm) * var(--snap, 1)); height: calc(var(--h) * var(--snap, 1));
+}
+/* the squares are SVG, drawn with crisp edges. anti-aliased, edges that don't fall on screen
+   pixels blur, and squares that touch each only partly cover the pixels they share, which
+   leaves seams between them and notches along the letters' outline. crisp, every size has to
+   be whole screen pixels or squares come out uneven: snapWord (Window.astro) snaps them. on
+   the way in, a square fills mint, outline and all, while it's still well short of its spot
+   (the move eases out, so it covers most of the way early), so it arrives as just a mint
+   square and nothing changes once it's there */
+.word svg { shape-rendering: crispEdges; }
+.word .sq {
+  /* percentages of the svg's box: --a squares and --b gaps across, --c of each down */
+  transform-box: view-box; transform-origin: 0 0;
+  transform: translate(calc(var(--a) * var(--sx) + var(--b) * var(--gx)), calc(var(--c) * (var(--sy) + var(--gy)))) scale(var(--ks));
+  transition: transform .6s cubic-bezier(.5, 0, .2, 1), opacity .3s;
   transition-delay: var(--dr);
 }
-/* the letters as one shape, under the squares (PixelWord.astro). hidden until the squares
-   have landed, and gone the moment they leave */
-.word .solid {
-  position: absolute; left: 0; top: 0; width: var(--w1); height: var(--h); overflow: visible;
-  fill: var(--mint); opacity: 0; transition: opacity .2s;
-}
-.word i.on { background: var(--mint); border-color: var(--mint); }
-.word i.extra { opacity: 0; }
+.word .sq > * { fill: transparent; transition: fill .3s var(--dr); }
+.word .sq .edge { fill: rgba(154, 152, 232, .45); }
+.word .sq.on > * { fill: var(--mint); }
+.word .sq.extra { opacity: 0; }
+.word.snapping .sq, .word.snapping .sq > * { transition: none; }
 /* decoded: set on <html> once it has decoded, remembered across visits */
-[data-name="bit"] .word { width: var(--w1); transition-delay: .08s; }
-[data-name="bit"] .word i {
-  transform: translate(calc(var(--x1) * 1em), calc(var(--y1) * 1em)) scale(var(--k));
-  background: var(--mint); border-color: var(--mint); opacity: 1;
-  transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
-}
-[data-name="bit"] .word .solid { opacity: 1; transition-delay: calc(var(--last) + 600ms); }
+[data-name="bit"] .word { width: calc(var(--w1) * var(--snap, 1)); transition-delay: .08s; }
+[data-name="bit"] .word .sq { transform: translate(var(--x1), var(--y1)) scale(var(--k)); opacity: 1; transition-delay: var(--d); }
+[data-name="bit"] .word .sq > * { fill: var(--mint); transition-delay: calc(var(--d) + 100ms); }
 /* the same, without JS: letters until the checkbox is ticked */
 @media (scripting: none) {
-  .word:has(input:not(:checked)) { width: var(--w1); transition-delay: .08s; }
-  .word input:not(:checked) ~ i {
-    transform: translate(calc(var(--x1) * 1em), calc(var(--y1) * 1em)) scale(var(--k));
-    background: var(--mint); border-color: var(--mint); opacity: 1;
-    transition-delay: var(--d), calc(var(--d) + 250ms), calc(var(--d) + 250ms), var(--d);
-  }
-  .word input:not(:checked) ~ .solid { opacity: 1; transition-delay: calc(var(--last) + 600ms); }
+  .word:has(input:not(:checked)) { width: calc(var(--w1) * var(--snap, 1)); transition-delay: .08s; }
+  .word:has(input:not(:checked)) .sq { transform: translate(var(--x1), var(--y1)) scale(var(--k)); opacity: 1; transition-delay: var(--d); }
+  .word:has(input:not(:checked)) .sq > * { fill: var(--mint); transition-delay: calc(var(--d) + 100ms); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hello * { transition-delay: 0s !important; transition-duration: .01s !important; }
