@@ -60,9 +60,11 @@ h1, h2, p { margin: 0; font-weight: 400; }
 .stage { flex: 1; display: flex; flex-direction: column; }
 .main { width: min(30rem, 100%); margin-block: auto; padding-block: 2.5rem; user-select: text; }
 
-/* page changes are real page loads; the browser's view transitions (no JS) make them a fade:
-   the old content fades out, then the new content fades in with a small rise. they don't
-   overlap, so the two pages never show at once. browsers without them just load the page */
+/* page changes: the old content fades out, then the new content fades in with a small rise.
+   they don't overlap, so the two pages never show at once. with JS, Astro's router swaps the
+   page in place and runs this fade (Window.astro). without JS, pages are real loads and the
+   browser's cross-document view transitions run the same fade; browsers without them just
+   load the page */
 @view-transition { navigation: auto; }
 .stage { view-transition-name: stage; }
 #field { view-transition-name: field; }
@@ -75,8 +77,8 @@ h1, h2, p { margin: 0; font-weight: 400; }
 ::view-transition-new(root) { animation: none; }
 ::view-transition-old(stage) { animation: page-out 100ms ease-in both; }
 ::view-transition-new(stage) { animation: page-in 260ms cubic-bezier(.2, .7, .2, 1) 110ms both; }
-/* the new page picks up the planet where the old one left it (field.ts); the old picture
-   stays underneath for a moment in case the first new frame is late */
+/* on a real page load, the new page picks up the planet where the old one left it (field.ts);
+   the old picture stays underneath for a moment in case the first new frame is late */
 ::view-transition-old(field) { animation: page-out 150ms ease-in both; }
 ::view-transition-new(field) { animation: none; }
 @media (prefers-reduced-motion: reduce) {

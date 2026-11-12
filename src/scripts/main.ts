@@ -1,6 +1,8 @@
 import { startField } from './field';
 
 // Everything here is extra: the pages work without it (see global.css for the no-JS name toggle).
+// With it, Astro's router swaps pages in place: this runs once, the canvas persists across
+// swaps, and anything that touches the rest of the page re-syncs on astro:page-load.
 
 // number keys switch pages
 document.addEventListener('keydown', (e) => {
@@ -11,6 +13,15 @@ document.addEventListener('keydown', (e) => {
 });
 
 startField(document.getElementById('field') as HTMLCanvasElement);
+
+// a swap replaces <html>'s attributes with the new page's; carry ours over before it paints
+// (data-name: the name's state, below. no-webgl: set by field.ts)
+document.addEventListener('astro:before-swap', (e) => {
+  const from = document.documentElement, to = e.newDocument.documentElement;
+  to.classList.toggle('no-webgl', from.classList.contains('no-webgl'));
+  if (from.dataset.name) to.dataset.name = from.dataset.name;
+  else delete to.dataset.name;
+});
 
 // "hi, i'm <binary>": on a first visit the bits rebuild themselves into pixel letters a moment
 // after the page loads (CSS transitions, positions from PixelWord.astro). That's remembered;
@@ -33,13 +44,17 @@ function setName(decoded: boolean) {
 
 // every pixel word (the name, the page titles) shares the one state. each word is a label for
 // a hidden checkbox, which is what the no-JS toggle runs on; here it just reports the click
-const toggles = document.querySelectorAll<HTMLInputElement>('.word input');
 let decodeTimer = 0;
-toggles.forEach((t) => t.addEventListener('change', () => {
+function setupWords() {
   clearTimeout(decodeTimer);
-  setName(document.documentElement.dataset.name !== 'bit');
-}));
-// first visit: decode on its own. someone who has switched it back to binary keeps binary
-if (toggles.length && storedName() === null) {
-  decodeTimer = window.setTimeout(() => { if (storedName() === null) setName(true); }, DECODE_AFTER);
+  const toggles = document.querySelectorAll<HTMLInputElement>('.word input');
+  toggles.forEach((t) => t.addEventListener('change', () => {
+    clearTimeout(decodeTimer);
+    setName(document.documentElement.dataset.name !== 'bit');
+  }));
+  // first visit: decode on its own. someone who has switched it back to binary keeps binary
+  if (toggles.length && storedName() === null) {
+    decodeTimer = window.setTimeout(() => { if (storedName() === null) setName(true); }, DECODE_AFTER);
+  }
 }
+document.addEventListener('astro:page-load', setupWords);

@@ -12,7 +12,8 @@ const WGAP = 0.05; // angle between neighbouring body points
 const PN = 16000, PR = 5; // dense enough to read as a surface, sparse enough to see the squares
 const TAN_HALF = Math.tan((22.5 * Math.PI) / 180); // 45° vertical field of view
 const TILT = 0.35; // the planet leans toward you by this much (radians)
-// pages are separate documents, so the planet's state is handed from one to the next
+// the router keeps the canvas across page swaps, but a real page load (no router, a reload)
+// starts afresh, so the planet's state is handed from one document to the next
 const STATE_KEY = 'field';
 
 const vertex = /* glsl */ `
