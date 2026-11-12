@@ -3,12 +3,11 @@ interface Props {
   name: string;
   url: string;
   desc: string;
-  meta: string;
 }
-const { name, url, desc, meta } = Astro.props;
+const { name, url, desc } = Astro.props;
 ---
 
 <a class="proj" href={url}>
-  <span class="pn"><span class="name">{name}</span><span class="meta">{meta}</span></span>
+  <span class="name">{name}</span>
   <span class="pd">{desc}</span>
 </a>
