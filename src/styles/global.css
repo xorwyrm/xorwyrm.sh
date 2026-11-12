@@ -67,7 +67,8 @@ h1, h2, p { margin: 0; font-weight: 400; }
    load the page */
 @view-transition { navigation: auto; }
 .stage { view-transition-name: stage; }
-#field { view-transition-name: field; }
+/* the planet has no name of its own: with the router it persists and keeps drawing, so it's
+   just part of the live new page (a snapshot of its own would ghost over it) */
 @keyframes page-out { to { opacity: 0; } }
 @keyframes page-in { from { opacity: 0; transform: translateY(.4rem); } }
 ::view-transition-group(*) { animation: none; }
@@ -77,10 +78,6 @@ h1, h2, p { margin: 0; font-weight: 400; }
 ::view-transition-new(root) { animation: none; }
 ::view-transition-old(stage) { animation: page-out 100ms ease-in both; }
 ::view-transition-new(stage) { animation: page-in 260ms cubic-bezier(.2, .7, .2, 1) 110ms both; }
-/* on a real page load, the new page picks up the planet where the old one left it (field.ts);
-   the old picture stays underneath for a moment in case the first new frame is late */
-::view-transition-old(field) { animation: page-out 150ms ease-in both; }
-::view-transition-new(field) { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*), ::view-transition-new(*) { animation-duration: .01s !important; animation-delay: 0s !important; }
 }
