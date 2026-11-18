@@ -17,7 +17,6 @@ pub const BODY: Rgb = Rgb::hex(0xa9a5c8);
 pub const SOFT: Rgb = Rgb::hex(0x9b97bc);
 pub const PRE: Rgb = Rgb::hex(0x8f8bb0);
 pub const DIM: Rgb = Rgb::hex(0x6d6993);
-pub const FAINT: Rgb = Rgb::hex(0x4f4c74);
 pub const MINT: Rgb = Rgb::hex(0x7fd8b4);
 
 /// The text column is at most this wide.
@@ -194,7 +193,7 @@ impl App {
         let pad = ((w as f32 * 0.084).round() as i32).clamp(2, 16);
         let header_y = if h >= 16 { 1 } else { 0 };
         let top = header_y + 2;
-        // the bottom row is for the key hints
+        // the bottom row is for the "copied" message
         let bottom = (h - 1).max(top);
         let col_w = COL_MAX.min(w - 2 * pad).max(1);
         let hero = if col_w >= 40 { 2 } else { 1 };
@@ -646,27 +645,12 @@ impl App {
             return;
         }
         let full = Rect { x: 0, y: 0, w: self.w, h: self.h };
-        let (text, fg) = match &self.toast {
-            Some((t, _)) => (t.clone(), MINT),
-            None => {
-                let room = self.w - 2 * self.layout.pad;
-                let hint = [
-                    "←/→ to switch pages · tab to pick a link · enter to copy it · q to quit",
-                    "←/→ to switch pages · tab to pick a link · q to quit",
-                    "←/→ to switch pages · q to quit",
-                    "q to quit",
-                ]
-                    .into_iter()
-                    .find(|h| term::width(h) <= room)
-                    .unwrap_or("");
-                (hint.to_string(), FAINT)
-            }
-        };
-        let w = term::width(&text);
+        let Some((text, _)) = &self.toast else { return };
+        let w = term::width(text);
         if w > 0 {
             // a clean strip, so it reads over the horizon
             buf.clear(self.layout.pad - 1, y, w + 2);
-            buf.text(self.layout.pad, y, &text, Style::fg(fg), full);
+            buf.text(self.layout.pad, y, text, Style::fg(MINT), full);
         }
     }
 }
